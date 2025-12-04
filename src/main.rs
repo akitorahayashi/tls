@@ -33,10 +33,12 @@ enum Commands {
     Report,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    dotenv::dotenv().ok();
     let cli = Cli::parse();
 
-    let result = handle_cli(cli);
+    let result = handle_cli(cli).await;
 
     if let Err(e) = result {
         eprintln!("Error: {}", e);
@@ -44,7 +46,7 @@ fn main() {
     }
 }
 
-fn handle_cli(cli: Cli) -> Result<(), AppError> {
+async fn handle_cli(cli: Cli) -> Result<(), AppError> {
     match cli.command {
         Commands::Init => {
             let cwd = env::current_dir()?;
@@ -68,19 +70,19 @@ fn handle_cli(cli: Cli) -> Result<(), AppError> {
         }
         Commands::Run { with_metrics, id } => {
             let cwd = env::current_dir()?;
-            let run_path = commands::run(&cwd, with_metrics, id.as_deref())?;
+            let run_path = commands::run(&cwd, with_metrics, id.as_deref()).await?;
             println!("Wrote run log to {}", run_path.display());
             Ok(())
         }
         Commands::Eval => {
             let cwd = env::current_dir()?;
-            let eval_path = commands::eval(&cwd)?;
+            let eval_path = commands::eval(&cwd).await?;
             println!("Wrote eval log to {}", eval_path.display());
             Ok(())
         }
         Commands::Report => {
             let cwd = env::current_dir()?;
-            let report_path = commands::report(&cwd)?;
+            let report_path = commands::report(&cwd).await?;
             println!("Wrote report to {}", report_path.display());
             Ok(())
         }

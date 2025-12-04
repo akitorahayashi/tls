@@ -2,6 +2,7 @@
 
 pub mod commands;
 pub mod error;
+pub mod gateway;
 pub mod model;
 mod scaffold;
 

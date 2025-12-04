@@ -12,6 +12,26 @@ base_url = "https://api.openai.com/v1"
 model = "gpt-4o-mini"
 "#;
 
+// Updated example block with new fields
+const EXAMPLE_BENCHMARK: &str = r#"{
+  "metadata": {
+    "id": "example-block",
+    "description": "An example benchmark block",
+    "version": "1.0",
+    "model": "gpt-3.5-turbo"
+  },
+  "prompts": {
+    "system": "You are a helpful assistant."
+  },
+  "dataset": [
+    {
+      "input": "Hello, how are you?",
+      "expected": "I am fine, thank you."
+    }
+  ]
+}"#;
+
+
 const GITIGNORE_ENTRIES: [&str; 2] = [".telescope/", ".env"];
 
 pub struct ProjectLayout<'a> {
@@ -38,6 +58,7 @@ impl<'a> ProjectLayout<'a> {
         self.ensure_dir(Path::new(".telescope").join("evals"), &mut created_paths)?;
 
         self.ensure_config(&mut created_paths)?;
+        self.ensure_example_block(&mut created_paths)?; // Added this
         let gitignore_updated = self.ensure_gitignore(&mut created_paths)?;
 
         Ok(InitReport { created_paths, gitignore_updated })
@@ -93,6 +114,16 @@ impl<'a> ProjectLayout<'a> {
             let mut file = fs::File::create(&config_path)?;
             file.write_all(DEFAULT_CONFIG.as_bytes())?;
             created.push(config_path);
+        }
+        Ok(())
+    }
+
+    fn ensure_example_block(&self, created: &mut Vec<PathBuf>) -> Result<(), AppError> {
+        let block_path = self.root.join("benchmarks/example.json");
+        if !block_path.exists() {
+            let mut file = fs::File::create(&block_path)?;
+            file.write_all(EXAMPLE_BENCHMARK.as_bytes())?;
+            created.push(block_path);
         }
         Ok(())
     }

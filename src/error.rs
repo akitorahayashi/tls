@@ -9,6 +9,7 @@ pub enum AppError {
     /// Configuration or environment issue that prevents command execution.
     ConfigError(String),
     Serialization(serde_json::Error),
+    NetworkError(String),
 }
 
 impl Display for AppError {
@@ -17,6 +18,7 @@ impl Display for AppError {
             AppError::Io(err) => write!(f, "{}", err),
             AppError::ConfigError(message) => write!(f, "{message}"),
             AppError::Serialization(err) => write!(f, "{err}"),
+            AppError::NetworkError(message) => write!(f, "{message}"),
         }
     }
 }
@@ -27,6 +29,7 @@ impl Error for AppError {
             AppError::Io(err) => Some(err),
             AppError::ConfigError(_) => None,
             AppError::Serialization(err) => Some(err),
+            AppError::NetworkError(_) => None,
         }
     }
 }
@@ -50,6 +53,7 @@ impl AppError {
             AppError::Io(err) => err.kind(),
             AppError::ConfigError(_) => io::ErrorKind::InvalidInput,
             AppError::Serialization(_) => io::ErrorKind::InvalidData,
+            AppError::NetworkError(_) => io::ErrorKind::Other,
         }
     }
 }

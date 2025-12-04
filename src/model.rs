@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EvaluationBlock {
     pub metadata: BlockMetadata,
+    pub prompts: BlockPrompts,
     pub dataset: Vec<TestCase>,
 }
 
@@ -12,6 +13,12 @@ pub struct BlockMetadata {
     pub id: String,
     pub description: Option<String>,
     pub version: Option<String>,
+    pub model: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BlockPrompts {
+    pub system: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -37,4 +44,6 @@ pub struct EvalEntry {
     pub expected: Option<String>,
     pub output: String,
     pub passed: bool,
+    #[serde(default)]
+    pub reason: Option<String>,
 }
