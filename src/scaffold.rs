@@ -18,7 +18,7 @@ const EXAMPLE_BENCHMARK: &str = r#"{
     "id": "example-block",
     "description": "An example benchmark block",
     "version": "1.0",
-    "model": "gpt-3.5-turbo"
+    "model": "gpt-4o-mini"
   },
   "prompts": {
     "system": "You are a helpful assistant."
@@ -30,7 +30,6 @@ const EXAMPLE_BENCHMARK: &str = r#"{
     }
   ]
 }"#;
-
 
 const GITIGNORE_ENTRIES: [&str; 2] = [".telescope/", ".env"];
 
@@ -77,7 +76,7 @@ impl<'a> ProjectLayout<'a> {
     }
 
     pub fn next_run_path(&self) -> PathBuf {
-        let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
+        let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S%.3f");
         self.runs_dir().join(format!("run_{timestamp}.jsonl"))
     }
 
@@ -91,7 +90,7 @@ impl<'a> ProjectLayout<'a> {
     }
 
     pub fn next_report_path(&self) -> PathBuf {
-        let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
+        let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S%.3f");
         self.reports_dir().join(format!("{timestamp}_report.md"))
     }
 

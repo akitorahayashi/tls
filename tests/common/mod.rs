@@ -40,7 +40,13 @@ impl TestContext {
 
     pub fn write_block(&self, dir: &str, id: &str, input: &str, expected: Option<&str>) {
         let content = serde_json::json!({
-            "metadata": {"id": id},
+            "metadata": {
+                "id": id,
+                "model": "gpt-4"
+            },
+            "prompts": {
+                "system": "You are a helpful assistant."
+            },
             "dataset": [
                 {"input": input, "expected": expected}
             ]

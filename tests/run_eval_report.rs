@@ -3,15 +3,19 @@ mod common;
 use common::TestContext;
 use predicates::str::contains;
 use serde_json::Value;
+use std::env;
+use std::sync::Mutex;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-use std::env;
+
+static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
 #[tokio::test]
 async fn run_executes_benchmarks_only_by_default() {
+    let _lock = ENV_MUTEX.lock().unwrap();
     let mock_server = MockServer::start().await;
-    unsafe { env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri())); }
-    unsafe { env::set_var("OPENAI_API_KEY", "test-key"); }
+    env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
+    env::set_var("OPENAI_API_KEY", "test-key");
 
     Mock::given(method("POST"))
         .and(path("/chat/completions"))
@@ -29,51 +33,8 @@ async fn run_executes_benchmarks_only_by_default() {
     // Remove the example block to avoid polluting the test
     std::fs::remove_file(ctx.path("benchmarks/example.json")).ok();
 
-    // Note: prompt construction in run command uses `block.prompts.system`.
-    // TestContext::write_block needs to be updated or we need to respect the new structure.
-    // However, write_block is defined in common/mod.rs which I haven't seen.
-    // I should check common/mod.rs. Assuming it writes the old JSON structure.
-    // If commands.rs expects new structure (with prompts), the old write_block will produce invalid JSON for `EvaluationBlock`.
-    // I need to update common/mod.rs or manually write the file here.
-    // Let's rely on checking common/mod.rs later. For now assuming write_block needs update.
-
-    // Actually, I should update common/mod.rs first because commands::load_blocks will fail if JSON is invalid.
-
-    // Let's assume write_block writes "input" and "expected" into "dataset".
-    // I need to manually write the block here to ensure it has "prompts".
-
-    let block_json = serde_json::json!({
-        "metadata": {
-            "id": "greeting",
-            "model": "gpt-4"
-        },
-        "prompts": {
-            "system": "You are an echo bot."
-        },
-        "dataset": [
-            { "input": "hello", "expected": "echo: hello" }
-        ]
-    });
-
-    std::fs::create_dir_all(ctx.path("benchmarks")).unwrap();
-    std::fs::write(ctx.path("benchmarks/greeting.json"), block_json.to_string()).unwrap();
-
-    // write a metrics block too
-    let metric_json = serde_json::json!({
-        "metadata": {
-            "id": "farewell",
-            "model": "gpt-4"
-        },
-        "prompts": {
-            "system": "You are an echo bot."
-        },
-        "dataset": [
-            { "input": "bye", "expected": "echo: bye" }
-        ]
-    });
-    std::fs::create_dir_all(ctx.path("metrics")).unwrap();
-    std::fs::write(ctx.path("metrics/farewell.json"), metric_json.to_string()).unwrap();
-
+    ctx.write_block("benchmarks", "greeting", "hello", Some("echo: hello"));
+    ctx.write_block("metrics", "farewell", "bye", Some("echo: bye"));
 
     ctx.cli().arg("run").assert().success();
 
@@ -87,9 +48,10 @@ async fn run_executes_benchmarks_only_by_default() {
 
 #[tokio::test]
 async fn run_can_include_metrics_and_filter_by_id() {
+    let _lock = ENV_MUTEX.lock().unwrap();
     let mock_server = MockServer::start().await;
-    unsafe { env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri())); }
-    unsafe { env::set_var("OPENAI_API_KEY", "test-key"); }
+    env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
+    env::set_var("OPENAI_API_KEY", "test-key");
 
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -104,35 +66,8 @@ async fn run_can_include_metrics_and_filter_by_id() {
     ctx.cli().arg("init").assert().success();
     std::fs::remove_file(ctx.path("benchmarks/example.json")).ok();
 
-    let block_json = serde_json::json!({
-        "metadata": {
-            "id": "bench",
-            "model": "gpt-4"
-        },
-        "prompts": {
-            "system": "sys"
-        },
-        "dataset": [
-            { "input": "hello", "expected": "echo: hello" }
-        ]
-    });
-    std::fs::create_dir_all(ctx.path("benchmarks")).unwrap();
-    std::fs::write(ctx.path("benchmarks/bench.json"), block_json.to_string()).unwrap();
-
-    let metric_json = serde_json::json!({
-        "metadata": {
-            "id": "metric",
-            "model": "gpt-4"
-        },
-        "prompts": {
-            "system": "sys"
-        },
-        "dataset": [
-            { "input": "bye", "expected": "echo: bye" }
-        ]
-    });
-    std::fs::create_dir_all(ctx.path("metrics")).unwrap();
-    std::fs::write(ctx.path("metrics/metric.json"), metric_json.to_string()).unwrap();
+    ctx.write_block("benchmarks", "bench", "hello", Some("echo: hello"));
+    ctx.write_block("metrics", "metric", "bye", Some("echo: bye"));
 
     ctx.cli().arg("run").arg("--with-metrics").assert().success();
     let run_path = ctx.latest_file(".telescope/runs");
@@ -160,9 +95,10 @@ async fn run_can_include_metrics_and_filter_by_id() {
 
 #[tokio::test]
 async fn eval_and_report_produce_outputs() {
+    let _lock = ENV_MUTEX.lock().unwrap();
     let mock_server = MockServer::start().await;
-    unsafe { env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri())); }
-    unsafe { env::set_var("OPENAI_API_KEY", "test-key"); }
+    env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
+    env::set_var("OPENAI_API_KEY", "test-key");
 
     // Mock for RUN (chat)
     Mock::given(method("POST"))
@@ -192,6 +128,7 @@ async fn eval_and_report_produce_outputs() {
     ctx.cli().arg("init").assert().success();
     std::fs::remove_file(ctx.path("benchmarks/example.json")).ok();
 
+    // Manually creating "echo.json" block with specific system prompt that mock expects
     let block_json = serde_json::json!({
         "metadata": {
             "id": "echo",

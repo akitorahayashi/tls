@@ -1,8 +1,8 @@
-use std::env;
-use std::time::Duration;
+use crate::error::AppError;
 use reqwest::{Client as HttpClient, Url};
 use serde::{Deserialize, Serialize};
-use crate::error::AppError;
+use std::env;
+use std::time::Duration;
 
 pub struct Client {
     http: HttpClient,
@@ -38,7 +38,12 @@ impl Client {
             .map_err(|_| AppError::ConfigError("OPENAI_API_KEY must be set".into()))?;
 
         // Allow overriding base_url for testing or other providers
-        let base_url_str = env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "https://api.openai.com/v1/".to_string());
+        let mut base_url_str = env::var("OPENAI_BASE_URL")
+            .unwrap_or_else(|_| "https://api.openai.com/v1/".to_string());
+
+        if !base_url_str.ends_with('/') {
+            base_url_str.push('/');
+        }
 
         // Ensure base_url ends with a slash if it doesn't
         let base_url = Url::parse(&base_url_str)
@@ -49,42 +54,37 @@ impl Client {
             .build()
             .map_err(|e| AppError::NetworkError(e.to_string()))?;
 
-        Ok(Self {
-            http,
-            base_url,
-            api_key,
-        })
+        Ok(Self { http, base_url, api_key })
     }
 
     pub fn new_with_base_url(base_url_str: &str) -> Result<Self, AppError> {
         let api_key = env::var("OPENAI_API_KEY")
-             .map_err(|_| AppError::ConfigError("OPENAI_API_KEY must be set".into()))?;
+            .map_err(|_| AppError::ConfigError("OPENAI_API_KEY must be set".into()))?;
 
+        // We assume test callers provide correct URLs, but we can also normalize here if needed.
+        // For new_with_base_url it's explicitly passed so we trust it or normalization might conflict with expected test values.
         let base_url = Url::parse(base_url_str)
             .map_err(|e| AppError::ConfigError(format!("Invalid base URL: {}", e)))?;
 
-         let http = HttpClient::builder()
+        let http = HttpClient::builder()
             .timeout(Duration::from_secs(60))
             .build()
             .map_err(|e| AppError::NetworkError(e.to_string()))?;
 
-         Ok(Self {
-            http,
-            base_url,
-            api_key,
-        })
+        Ok(Self { http, base_url, api_key })
     }
 
     pub async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError> {
-        let url = self.base_url.join("chat/completions")
+        let url = self
+            .base_url
+            .join("chat/completions")
             .map_err(|e| AppError::ConfigError(format!("Failed to join URL: {}", e)))?;
 
-        let body = ChatCompletionRequest {
-            model: model.to_string(),
-            messages,
-        };
+        let body = ChatCompletionRequest { model: model.to_string(), messages };
 
-        let res = self.http.post(url)
+        let res = self
+            .http
+            .post(url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&body)
             .send()
@@ -92,12 +92,19 @@ impl Client {
             .map_err(|e| AppError::NetworkError(e.to_string()))?;
 
         if !res.status().is_success() {
-             let status = res.status();
-             let text = res.text().await.unwrap_or_default();
-             return Err(AppError::NetworkError(format!("API Request failed: {} - {}", status, text)));
+            let status = res.status();
+            let text = res
+                .text()
+                .await
+                .unwrap_or_else(|e| format!("(failed to read response body: {})", e));
+            return Err(AppError::NetworkError(format!(
+                "API Request failed: {} - {}",
+                status, text
+            )));
         }
 
-        let response_body: ChatCompletionResponse = res.json()
+        let response_body: ChatCompletionResponse = res
+            .json()
             .await
             .map_err(|e| AppError::NetworkError(format!("Failed to parse response: {}", e)))?;
 
@@ -112,15 +119,15 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
-    use std::env;
 
     #[tokio::test]
     async fn test_chat_success() {
         let mock_server = MockServer::start().await;
 
-        unsafe { env::set_var("OPENAI_API_KEY", "test-key"); }
+        env::set_var("OPENAI_API_KEY", "test-key");
 
         let response_body = r#"
         {
@@ -138,7 +145,11 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/chat/completions"))
             .and(header("Authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::from_str::<serde_json::Value>(response_body).unwrap()))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::from_str::<serde_json::Value>(response_body).unwrap(),
+                ),
+            )
             .mount(&mock_server)
             .await;
 
@@ -156,7 +167,7 @@ mod tests {
     #[tokio::test]
     async fn test_chat_error_500() {
         let mock_server = MockServer::start().await;
-        unsafe { env::set_var("OPENAI_API_KEY", "test-key"); }
+        env::set_var("OPENAI_API_KEY", "test-key");
 
         Mock::given(method("POST"))
             .respond_with(ResponseTemplate::new(500).set_body_string("Internal Server Error"))

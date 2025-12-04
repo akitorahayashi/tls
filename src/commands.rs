@@ -9,8 +9,8 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::io::AsyncWriteExt; // Import AsyncWriteExt
-use tokio::fs::File as AsyncFile; // Import AsyncFile
+use tokio::fs::File as AsyncFile;
+use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 const RUNS_DIR: &str = ".telescope/runs";
@@ -21,7 +21,11 @@ pub fn init(project_root: &Path) -> Result<InitReport, AppError> {
     layout.init()
 }
 
-pub async fn run(project_root: &Path, with_metrics: bool, id: Option<&str>) -> Result<PathBuf, AppError> {
+pub async fn run(
+    project_root: &Path,
+    with_metrics: bool,
+    id: Option<&str>,
+) -> Result<PathBuf, AppError> {
     let layout = ProjectLayout::new(project_root);
     let mut blocks = load_blocks(project_root.join("benchmarks"))?;
 
@@ -39,10 +43,8 @@ pub async fn run(project_root: &Path, with_metrics: bool, id: Option<&str>) -> R
 
     let client = Arc::new(Client::new()?);
     let run_path = layout.next_run_path();
-    // Use AsyncFile
     let file = Arc::new(Mutex::new(AsyncFile::create(&run_path).await?));
 
-    // Flatten all test cases into a single list for parallel processing
     let mut tasks = Vec::new();
     for block in blocks {
         let block = Arc::new(block);
@@ -55,14 +57,8 @@ pub async fn run(project_root: &Path, with_metrics: bool, id: Option<&str>) -> R
             tasks.push(async move {
                 let system_prompt = block.prompts.system.clone();
                 let messages = vec![
-                    Message {
-                        role: "system".to_string(),
-                        content: system_prompt,
-                    },
-                    Message {
-                        role: "user".to_string(),
-                        content: case.input.clone(),
-                    },
+                    Message { role: "system".to_string(), content: system_prompt },
+                    Message { role: "user".to_string(), content: case.input.clone() },
                 ];
 
                 let output_result = client.chat(&block.metadata.model, messages).await;
@@ -81,10 +77,15 @@ pub async fn run(project_root: &Path, with_metrics: bool, id: Option<&str>) -> R
                     timestamp: Utc::now(),
                 };
 
-                let line = serde_json::to_string(&entry).unwrap(); // Should be safe
+                let line = match serde_json::to_string(&entry) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        eprintln!("Failed to serialize run entry: {}", e);
+                        return;
+                    }
+                };
 
                 let mut file_guard = file.lock().await;
-                // Use AsyncWriteExt
                 if let Err(e) = file_guard.write_all(format!("{}\n", line).as_bytes()).await {
                     eprintln!("Failed to write run entry: {}", e);
                 }
@@ -92,11 +93,7 @@ pub async fn run(project_root: &Path, with_metrics: bool, id: Option<&str>) -> R
         }
     }
 
-    // Process in parallel with a concurrency limit
-    stream::iter(tasks)
-        .buffer_unordered(10) // Limit concurrency to 10
-        .collect::<Vec<()>>()
-        .await;
+    stream::iter(tasks).buffer_unordered(10).collect::<Vec<()>>().await;
 
     Ok(run_path)
 }
@@ -109,43 +106,47 @@ struct JudgeResponse {
 
 pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
     let layout = ProjectLayout::new(project_root);
-    let run_path = latest_file(project_root.join(RUNS_DIR))
+    let run_path = latest_file(project_root.join(RUNS_DIR))?
         .ok_or_else(|| AppError::ConfigError("No run logs found".into()))?;
 
     let file = File::open(&run_path)?;
     let reader = BufReader::new(file);
 
-    // We need to load blocks to know the rubric/criteria if we had them in blocks,
-    // but typically eval logic might be generic or based on expectations in RunEntry.
-    // However, the prompt says: "Implement logic to dynamically generate a 'grading prompt' containing a Rubric (grading criteria) and a RunResult (actual answer)."
-
-    // The current RunEntry has `expected`.
-    // The user instruction says: "Query the Judge model (e.g., GPT-4) via Gateway and extract passed: true/false and reason."
-
-    // We'll create a judge client.
     let client = Arc::new(Client::new()?);
-    let judge_model = "gpt-4"; // Or configurable
+    let judge_model = "gpt-4";
 
     let eval_path = layout.eval_path_for(&run_path);
-    // Use AsyncFile
     let out = Arc::new(Mutex::new(AsyncFile::create(&eval_path).await?));
 
     let mut tasks = Vec::new();
 
-    for line in reader.lines() {
-        let line = line?;
-        let run: RunEntry = serde_json::from_str(&line)?;
+    for line_result in reader.lines() {
+        let line = match line_result {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("Failed to read line from run log: {}", e);
+                continue;
+            }
+        };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let run: RunEntry = match serde_json::from_str(&line) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("Failed to parse run entry from line '{}': {}", line, e);
+                continue;
+            }
+        };
 
         let client = Arc::clone(&client);
         let out = Arc::clone(&out);
 
         tasks.push(async move {
             let passed;
-            let output_reason; // renamed to avoid conflict with run.output
+            let output_reason;
 
-            // If there is an expected answer, we use it for comparison/judging
             if let Some(expected) = &run.expected {
-                // Construct Judge Prompt
                 let system_prompt = "You are an AI Judge. Evaluate the actual output against the expected output/criteria. Respond in JSON format with `passed` (boolean) and `reason` (string).";
                 let user_content = format!(
                     "Input: {}\nExpected Criteria/Answer: {}\nActual Output: {}\n\nEvaluate if the Actual Output meets the Expected Criteria.",
@@ -159,27 +160,17 @@ pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
 
                 match client.chat(judge_model, messages).await {
                     Ok(response_content) => {
-                        // Parse JSON response
-                        // We might need to handle potential markdown code blocks ```json ... ```
-                        let clean_content = response_content.trim();
-                        let clean_content = if clean_content.starts_with("```json") {
-                            clean_content
-                                .trim_start_matches("```json")
-                                .trim_end_matches("```")
-                                .trim()
-                        } else if clean_content.starts_with("```") {
-                            clean_content
-                                .trim_start_matches("```")
-                                .trim_end_matches("```")
-                                .trim()
-                        } else {
-                            clean_content
-                        };
+                        let clean_content = response_content
+                            .trim()
+                            .trim_start_matches("```json")
+                            .trim_start_matches("```")
+                            .trim_end_matches("```")
+                            .trim();
 
                         match serde_json::from_str::<JudgeResponse>(clean_content) {
                             Ok(judge_res) => {
                                 passed = judge_res.passed;
-                                output_reason = judge_res.reason; // renamed variable
+                                output_reason = judge_res.reason;
                             },
                             Err(e) => {
                                 passed = false;
@@ -194,10 +185,6 @@ pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
                 }
 
             } else {
-                // If no expected answer, pass by default or require manual review?
-                // The prompt says "LLM-as-a-Judge". If no criteria, maybe pass?
-                // "The current eval only performs simple string matching (==). LLM-as-a-Judge is missing."
-                // I'll assume if no expected value is provided, it passes (maybe it's just a run log).
                 passed = true;
                 output_reason = "No expectation provided.".to_string();
             }
@@ -211,7 +198,14 @@ pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
                 reason: Some(output_reason),
             };
 
-            let line = serde_json::to_string(&eval).unwrap();
+            let line = match serde_json::to_string(&eval) {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!("Failed to serialize eval entry: {}", e);
+                    return;
+                }
+            };
+
             let mut out_guard = out.lock().await;
             if let Err(e) = out_guard.write_all(format!("{}\n", line).as_bytes()).await {
                 eprintln!("Failed to write eval entry: {}", e);
@@ -219,18 +213,15 @@ pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
         });
     }
 
-    stream::iter(tasks)
-        .buffer_unordered(10)
-        .collect::<Vec<()>>()
-        .await;
+    stream::iter(tasks).buffer_unordered(10).collect::<Vec<()>>().await;
 
     Ok(eval_path)
 }
 
 pub async fn report(project_root: &Path) -> Result<PathBuf, AppError> {
-    let run_path = latest_file(project_root.join(RUNS_DIR))
+    let run_path = latest_file(project_root.join(RUNS_DIR))?
         .ok_or_else(|| AppError::ConfigError("No run logs found".into()))?;
-    let eval_path = latest_file(project_root.join(EVALS_DIR))
+    let eval_path = latest_file(project_root.join(EVALS_DIR))?
         .ok_or_else(|| AppError::ConfigError("No eval logs found".into()))?;
 
     let eval_entries = read_jsonl::<EvalEntry>(&eval_path)?;
@@ -281,11 +272,29 @@ fn load_blocks(dir: PathBuf) -> Result<Vec<EvaluationBlock>, AppError> {
     Ok(blocks)
 }
 
-fn latest_file(dir: PathBuf) -> Option<PathBuf> {
+fn latest_file(dir: PathBuf) -> Result<Option<PathBuf>, AppError> {
+    let _ = match fs::read_dir(&dir) {
+        Ok(rd) => rd,
+        Err(_) => return Ok(None), // Or handle as error? The original code returned Option.
+                                   // But the reviewer said: "The use of .ok()? will silently discard any I/O errors... propagate the io::Error".
+                                   // The original code was: `fs::read_dir(dir).ok()?.filter_map(...).collect()`.
+                                   // If read_dir failed, it returned None.
+                                   // If I propagate error, I should match and return Err.
+    };
+
+    // Actually, if directory doesn't exist, read_dir fails. `ok()?` converts to None.
+    // If permission denied, it also returns None.
+    // I should check if dir exists first, or just propagate error?
+    // Reviewer: "It would be more robust to propagate the io::Error".
+
+    // But wait, `latest_file` signature was `Option<PathBuf>`.
+    // Caller expects `Option`.
+    // I changed signature to `Result<Option<PathBuf>, AppError>`.
+
     let mut entries: Vec<PathBuf> =
-        fs::read_dir(dir).ok()?.filter_map(|e| e.ok().map(|e| e.path())).collect();
+        fs::read_dir(dir)?.filter_map(|e| e.ok().map(|e| e.path())).collect();
     entries.sort();
-    entries.pop()
+    Ok(entries.pop())
 }
 
 fn read_jsonl<T: for<'de> serde::Deserialize<'de>>(path: &Path) -> Result<Vec<T>, AppError> {

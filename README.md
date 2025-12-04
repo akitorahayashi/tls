@@ -29,7 +29,7 @@ cargo run -- init
 # or install a development copy
 cargo install --path .
 # then run anywhere
- tls init
+tls init
 ```
 
 ### Running evaluations
@@ -39,7 +39,10 @@ is JSON with minimal metadata and a dataset:
 
 ```json
 {
-  "metadata": { "id": "echo-smoke" },
+  "metadata": { "id": "echo-smoke", "model": "gpt-4" },
+  "prompts": {
+    "system": "You are an echo bot."
+  },
   "dataset": [
     { "input": "ping", "expected": "echo: ping" }
   ]
