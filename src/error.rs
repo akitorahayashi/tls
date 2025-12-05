@@ -2,14 +2,14 @@ use std::error::Error;
 use std::fmt::{self, Display};
 use std::io;
 
-/// Library-wide error type capturing domain-neutral and underlying I/O failures.
+/// Library-wide error type for Telescope commands.
 #[derive(Debug)]
 pub enum AppError {
     Io(io::Error),
     /// Configuration or environment issue that prevents command execution.
     ConfigError(String),
-    /// Raised when a requested item cannot be located in storage.
-    ItemNotFound(String),
+    Serialization(serde_json::Error),
+    NetworkError(String),
 }
 
 impl Display for AppError {
@@ -17,7 +17,8 @@ impl Display for AppError {
         match self {
             AppError::Io(err) => write!(f, "{}", err),
             AppError::ConfigError(message) => write!(f, "{message}"),
-            AppError::ItemNotFound(id) => write!(f, "Item '{id}' was not found"),
+            AppError::Serialization(err) => write!(f, "{err}"),
+            AppError::NetworkError(message) => write!(f, "{message}"),
         }
     }
 }
@@ -26,7 +27,9 @@ impl Error for AppError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             AppError::Io(err) => Some(err),
-            AppError::ConfigError(_) | AppError::ItemNotFound(_) => None,
+            AppError::ConfigError(_) => None,
+            AppError::Serialization(err) => Some(err),
+            AppError::NetworkError(_) => None,
         }
     }
 }
@@ -37,17 +40,20 @@ impl From<io::Error> for AppError {
     }
 }
 
-impl AppError {
-    pub(crate) fn config_error<S: Into<String>>(message: S) -> Self {
-        AppError::ConfigError(message.into())
+impl From<serde_json::Error> for AppError {
+    fn from(value: serde_json::Error) -> Self {
+        AppError::Serialization(value)
     }
+}
 
+impl AppError {
     /// Provide an `io::ErrorKind`-like view for callers expecting legacy behavior.
     pub fn kind(&self) -> io::ErrorKind {
         match self {
             AppError::Io(err) => err.kind(),
             AppError::ConfigError(_) => io::ErrorKind::InvalidInput,
-            AppError::ItemNotFound(_) => io::ErrorKind::NotFound,
+            AppError::Serialization(_) => io::ErrorKind::InvalidData,
+            AppError::NetworkError(_) => io::ErrorKind::Other,
         }
     }
 }

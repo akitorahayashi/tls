@@ -1,9 +1,10 @@
-//! Library entry point exposing the core command handlers.
+//! Library entry point exposing Telescope command handlers.
 
 pub mod commands;
 pub mod error;
+pub mod gateway;
+pub mod model;
+mod scaffold;
 
-mod core;
-mod storage;
-
-pub use commands::{add, delete, list};
+pub use commands::init;
+pub use scaffold::{InitReport, ProjectLayout};
