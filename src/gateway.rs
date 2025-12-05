@@ -1,8 +1,14 @@
 use crate::error::AppError;
+use async_trait::async_trait;
 use reqwest::{Client as HttpClient, Url};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::time::Duration;
+
+#[async_trait]
+pub trait GenAiClient: Send + Sync {
+    async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError>;
+}
 
 pub struct Client {
     http: HttpClient,
@@ -54,7 +60,11 @@ impl Client {
             .build()
             .map_err(|e| AppError::NetworkError(e.to_string()))?;
 
-        Ok(Self { http, base_url, api_key })
+        Ok(Self {
+            http,
+            base_url,
+            api_key,
+        })
     }
 
     pub fn new_with_base_url(base_url_str: &str) -> Result<Self, AppError> {
@@ -71,16 +81,26 @@ impl Client {
             .build()
             .map_err(|e| AppError::NetworkError(e.to_string()))?;
 
-        Ok(Self { http, base_url, api_key })
+        Ok(Self {
+            http,
+            base_url,
+            api_key,
+        })
     }
+}
 
-    pub async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError> {
+#[async_trait]
+impl GenAiClient for Client {
+    async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError> {
         let url = self
             .base_url
             .join("chat/completions")
             .map_err(|e| AppError::ConfigError(format!("Failed to join URL: {}", e)))?;
 
-        let body = ChatCompletionRequest { model: model.to_string(), messages };
+        let body = ChatCompletionRequest {
+            model: model.to_string(),
+            messages,
+        };
 
         let res = self
             .http
@@ -113,6 +133,17 @@ impl Client {
         } else {
             Err(AppError::NetworkError("No choices in response".into()))
         }
+    }
+}
+
+pub struct MockGenAiClient {
+    pub response: String,
+}
+
+#[async_trait]
+impl GenAiClient for MockGenAiClient {
+    async fn chat(&self, _model: &str, _messages: Vec<Message>) -> Result<String, AppError> {
+        Ok(self.response.clone())
     }
 }
 
@@ -157,7 +188,10 @@ mod tests {
 
         let client = Client::new_with_base_url(&base_url).expect("Failed to create client");
 
-        let messages = vec![Message { role: "user".to_string(), content: "Hi".to_string() }];
+        let messages = vec![Message {
+            role: "user".to_string(),
+            content: "Hi".to_string(),
+        }];
         let result = client.chat("gpt-4", messages).await;
 
         assert!(result.is_ok());
@@ -177,7 +211,10 @@ mod tests {
         let base_url = format!("{}/", mock_server.uri());
         let client = Client::new_with_base_url(&base_url).expect("Failed to create client");
 
-        let messages = vec![Message { role: "user".to_string(), content: "Hi".to_string() }];
+        let messages = vec![Message {
+            role: "user".to_string(),
+            content: "Hi".to_string(),
+        }];
         let result = client.chat("gpt-4", messages).await;
 
         assert!(result.is_err());
