@@ -82,7 +82,7 @@ async fn handle_cli(cli: Cli) -> Result<(), AppError> {
         }
         Commands::Report => {
             let cwd = env::current_dir()?;
-            let report_path = commands::report(&cwd).await?;
+            let report_path = commands::report(&cwd)?;
             println!("Wrote report to {}", report_path.display());
             Ok(())
         }
