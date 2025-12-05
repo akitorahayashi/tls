@@ -27,10 +27,6 @@ enum Commands {
         #[arg(long)]
         id: Option<String>,
     },
-    /// Evaluate the latest run log
-    Eval,
-    /// Generate a Markdown report from the latest run/eval pair
-    Report,
 }
 
 #[tokio::main]
@@ -66,24 +62,16 @@ async fn handle_cli(cli: Cli) -> Result<(), AppError> {
                 println!("Updated .gitignore with .telescope/ and .env");
             }
 
+            if report.git_initialized {
+                println!("Initialized git repository");
+            }
+
             Ok(())
         }
         Commands::Run { with_metrics, id } => {
             let cwd = env::current_dir()?;
             let run_path = commands::run(&cwd, with_metrics, id.as_deref()).await?;
             println!("Wrote run log to {}", run_path.display());
-            Ok(())
-        }
-        Commands::Eval => {
-            let cwd = env::current_dir()?;
-            let eval_path = commands::eval(&cwd).await?;
-            println!("Wrote eval log to {}", eval_path.display());
-            Ok(())
-        }
-        Commands::Report => {
-            let cwd = env::current_dir()?;
-            let report_path = commands::report(&cwd)?;
-            println!("Wrote report to {}", report_path.display());
             Ok(())
         }
     }

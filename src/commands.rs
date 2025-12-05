@@ -1,4 +1,4 @@
-use crate::core::{evaluator, reporter, runner};
+use crate::core::runner;
 use crate::error::AppError;
 use crate::gateway::Client;
 use crate::storage::{InitReport, ProjectLayout};
@@ -19,16 +19,4 @@ pub async fn run(
 
     // We pass the client directly. runner::run_blocks takes &impl GenAiClient.
     runner::run_blocks(&layout, &client, with_metrics, id).await
-}
-
-pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
-    let layout = ProjectLayout::new(project_root);
-    let client = Client::new()?;
-
-    evaluator::eval_run(&layout, &client).await
-}
-
-pub fn report(project_root: &Path) -> Result<PathBuf, AppError> {
-    let layout = ProjectLayout::new(project_root);
-    reporter::generate_report(&layout)
 }

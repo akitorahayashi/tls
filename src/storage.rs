@@ -3,14 +3,14 @@ use crate::model::EvaluationBlock;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 const DEFAULT_CONFIG: &str = r#"[project]
 name = "my-telescope-project"
 description = "Describe your evaluation focus here"
 
 [target]
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini"
+model = "llama3.2:3b"
 "#;
 
 const EXAMPLE_BENCHMARK: &str = r#"{
@@ -18,7 +18,7 @@ const EXAMPLE_BENCHMARK: &str = r#"{
     "id": "example-block",
     "description": "An example benchmark block",
     "version": "1.0",
-    "model": "gpt-4o-mini"
+    "model": "llama3.2:3b"
   },
   "prompts": {
     "system": "You are a helpful assistant."
@@ -31,6 +31,15 @@ const EXAMPLE_BENCHMARK: &str = r#"{
   ]
 }"#;
 
+const ENV_EXAMPLE_CONTENT: &str = r#"# Telescope Environment Configuration
+# 
+# Endpoint for OpenAI-compatible LLM API (default: Ollama)
+OPENAI_API_COMPATIBLE_LLM_ENDPOINT=http://127.0.0.1:11434
+
+# Optional: API key for the LLM service (not required for local Ollama)
+# OPENAI_API_KEY=your-api-key-here
+"#;
+
 const GITIGNORE_ENTRIES: [&str; 2] = [".telescope/", ".env"];
 
 pub struct ProjectLayout<'a> {
@@ -40,6 +49,7 @@ pub struct ProjectLayout<'a> {
 pub struct InitReport {
     pub created_paths: Vec<PathBuf>,
     pub gitignore_updated: bool,
+    pub git_initialized: bool,
 }
 
 impl<'a> ProjectLayout<'a> {
@@ -52,27 +62,19 @@ impl<'a> ProjectLayout<'a> {
 
         self.ensure_dir("benchmarks", &mut created_paths)?;
         self.ensure_dir("metrics", &mut created_paths)?;
-        self.ensure_dir("reports", &mut created_paths)?;
         self.ensure_dir(Path::new(".telescope").join("runs"), &mut created_paths)?;
-        self.ensure_dir(Path::new(".telescope").join("evals"), &mut created_paths)?;
 
         self.ensure_config(&mut created_paths)?;
         self.ensure_example_block(&mut created_paths)?;
         let gitignore_updated = self.ensure_gitignore(&mut created_paths)?;
+        self.ensure_env_files(&mut created_paths)?;
+        let git_initialized = self.init_git_repo()?;
 
-        Ok(InitReport { created_paths, gitignore_updated })
+        Ok(InitReport { created_paths, gitignore_updated, git_initialized })
     }
 
     pub fn runs_dir(&self) -> PathBuf {
         self.root.join(".telescope/runs")
-    }
-
-    pub fn evals_dir(&self) -> PathBuf {
-        self.root.join(".telescope/evals")
-    }
-
-    pub fn reports_dir(&self) -> PathBuf {
-        self.root.join("reports")
     }
 
     pub fn benchmarks_dir(&self) -> PathBuf {
@@ -86,20 +88,6 @@ impl<'a> ProjectLayout<'a> {
     pub fn next_run_path(&self) -> PathBuf {
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S%.3f");
         self.runs_dir().join(format!("run_{timestamp}.jsonl"))
-    }
-
-    pub fn eval_path_for(&self, run_path: &Path) -> PathBuf {
-        let file_name = run_path
-            .file_stem()
-            .and_then(|name| name.to_str())
-            .map(|name| format!("{name}_eval.jsonl"))
-            .unwrap_or_else(|| "eval.jsonl".to_string());
-        self.evals_dir().join(file_name)
-    }
-
-    pub fn next_report_path(&self) -> PathBuf {
-        let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S%.3f");
-        self.reports_dir().join(format!("{timestamp}_report.md"))
     }
 
     pub fn load_benchmarks(&self) -> Result<Vec<EvaluationBlock>, AppError> {
@@ -129,10 +117,6 @@ impl<'a> ProjectLayout<'a> {
 
     pub fn latest_run_file(&self) -> Result<Option<PathBuf>, AppError> {
         self.latest_file(&self.runs_dir())
-    }
-
-    pub fn latest_eval_file(&self) -> Result<Option<PathBuf>, AppError> {
-        self.latest_file(&self.evals_dir())
     }
 
     fn latest_file(&self, dir: &Path) -> Result<Option<PathBuf>, AppError> {
@@ -221,5 +205,54 @@ impl<'a> ProjectLayout<'a> {
         }
 
         Ok(updated)
+    }
+
+    fn ensure_env_files(&self, created: &mut Vec<PathBuf>) -> Result<(), AppError> {
+        // Create .env.example with recommended settings
+        let env_example_path = self.root.join(".env.example");
+        if !env_example_path.exists() {
+            let mut file = fs::File::create(&env_example_path)?;
+            file.write_all(ENV_EXAMPLE_CONTENT.as_bytes())?;
+            created.push(env_example_path);
+        }
+
+        // Create .env as a copy of .env.example (user can edit immediately)
+        let env_path = self.root.join(".env");
+        if !env_path.exists() {
+            let mut file = fs::File::create(&env_path)?;
+            file.write_all(ENV_EXAMPLE_CONTENT.as_bytes())?;
+            created.push(env_path);
+        }
+
+        Ok(())
+    }
+
+    fn init_git_repo(&self) -> Result<bool, AppError> {
+        let git_dir = self.root.join(".git");
+        if git_dir.exists() {
+            return Ok(false);
+        }
+
+        let output =
+            Command::new("git").arg("init").current_dir(self.root).output().map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AppError::ConfigError(
+                        "git command not found. Please install Git to initialize a repository."
+                            .to_string(),
+                    )
+                } else {
+                    AppError::Io(e)
+                }
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(AppError::ConfigError(format!(
+                "Failed to initialize git repository: {}",
+                stderr
+            )));
+        }
+
+        Ok(true)
     }
 }

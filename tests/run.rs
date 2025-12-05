@@ -15,11 +15,11 @@ static ENV_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 async fn run_executes_benchmarks_only_by_default() {
     let _lock = ENV_MUTEX.lock().await;
     let mock_server = MockServer::start().await;
-    env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
+    env::set_var("OPENAI_API_COMPATIBLE_LLM_ENDPOINT", format!("{}/", mock_server.uri()));
     env::set_var("OPENAI_API_KEY", "test-key");
 
     Mock::given(method("POST"))
-        .and(path("/chat/completions"))
+        .and(path("/v1/chat/completions"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "choices": [{
                 "message": { "role": "assistant", "content": "echo: hello" }
@@ -51,7 +51,7 @@ async fn run_executes_benchmarks_only_by_default() {
 async fn run_can_include_metrics_and_filter_by_id() {
     let _lock = ENV_MUTEX.lock().await;
     let mock_server = MockServer::start().await;
-    env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
+    env::set_var("OPENAI_API_COMPATIBLE_LLM_ENDPOINT", format!("{}/", mock_server.uri()));
     env::set_var("OPENAI_API_KEY", "test-key");
 
     Mock::given(method("POST"))
@@ -92,90 +92,4 @@ async fn run_can_include_metrics_and_filter_by_id() {
         })
         .collect();
     assert_eq!(ids, vec!["metric".to_string()]);
-}
-
-#[tokio::test]
-async fn eval_and_report_produce_outputs() {
-    let _lock = ENV_MUTEX.lock().await;
-    let mock_server = MockServer::start().await;
-    env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
-    env::set_var("OPENAI_API_KEY", "test-key");
-
-    // Mock for RUN (chat)
-    Mock::given(method("POST"))
-        .and(path("/chat/completions"))
-        .and(body_string_contains("You are an echo bot")) // Distinguish based on system prompt?
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "choices": [{
-                "message": { "role": "assistant", "content": "echo: ping" }
-            }]
-        })))
-        .mount(&mock_server)
-        .await;
-
-    // Mock for EVAL (judge)
-    Mock::given(method("POST"))
-        .and(path("/chat/completions"))
-        .and(body_string_contains("You are an AI Judge"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "choices": [{
-                "message": { "role": "assistant", "content": "```json\n{ \"passed\": true, \"reason\": \"Matches expectation\" }\n```" }
-            }]
-        })))
-        .mount(&mock_server)
-        .await;
-
-    let ctx = TestContext::new();
-    ctx.cli().arg("init").assert().success();
-    std::fs::remove_file(ctx.path("benchmarks/example.json")).ok();
-
-    // Manually creating "echo.json" block with specific system prompt that mock expects
-    let block_json = serde_json::json!({
-        "metadata": {
-            "id": "echo",
-            "model": "gpt-4"
-        },
-        "prompts": {
-            "system": "You are an echo bot."
-        },
-        "dataset": [
-            { "input": "ping", "expected": "echo: ping" }
-        ]
-    });
-    std::fs::create_dir_all(ctx.path("benchmarks")).unwrap();
-    std::fs::write(ctx.path("benchmarks/echo.json"), block_json.to_string()).unwrap();
-
-    ctx.cli().arg("run").assert().success();
-    ctx.cli().arg("eval").assert().success();
-    ctx.cli().arg("report").assert().success();
-
-    let eval_path = ctx.latest_file(".telescope/evals");
-    let eval_contents = std::fs::read_to_string(&eval_path).unwrap();
-    let rows: Vec<Value> =
-        eval_contents.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
-
-    assert!(rows.iter().all(|row| row["passed"].as_bool() == Some(true)));
-
-    // Check if reason is present
-    assert!(rows[0].get("reason").is_some());
-
-    let report_path = ctx.latest_file("reports");
-    let report = std::fs::read_to_string(report_path).unwrap();
-    assert!(report.contains("Total cases: 1"));
-    assert!(report.contains("Passed: 1"));
-}
-
-// Helper matcher for body content
-use wiremock::Match;
-struct BodyStringContains(String);
-
-impl Match for BodyStringContains {
-    fn matches(&self, request: &wiremock::Request) -> bool {
-        let body_str = String::from_utf8_lossy(&request.body);
-        body_str.contains(&self.0)
-    }
-}
-
-fn body_string_contains(s: &str) -> BodyStringContains {
-    BodyStringContains(s.to_string())
 }
