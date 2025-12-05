@@ -22,7 +22,8 @@ pub async fn eval_run(
     layout: &ProjectLayout<'_>,
     client: &impl GenAiClient,
 ) -> Result<PathBuf, AppError> {
-    let run_path = layout.latest_run_file()?
+    let run_path = layout
+        .latest_run_file()?
         .ok_or_else(|| AppError::ConfigError("No run logs found".into()))?;
 
     let file = File::open(&run_path)?;
@@ -57,7 +58,7 @@ pub async fn eval_run(
 
         let out = Arc::clone(&out);
 
-        tasks.push(async move {
+        let task = async move {
             let passed;
             let output_reason;
 
@@ -86,19 +87,21 @@ pub async fn eval_run(
                             Ok(judge_res) => {
                                 passed = judge_res.passed;
                                 output_reason = judge_res.reason;
-                            },
+                            }
                             Err(e) => {
                                 passed = false;
-                                output_reason = format!("Failed to parse judge response: {}. Response was: {}", e, response_content);
+                                output_reason = format!(
+                                    "Failed to parse judge response: {}. Response was: {}",
+                                    e, response_content
+                                );
                             }
                         }
-                    },
+                    }
                     Err(e) => {
                         passed = false;
                         output_reason = format!("Judge API call failed: {}", e);
                     }
                 }
-
             } else {
                 passed = true;
                 output_reason = "No expectation provided.".to_string();
@@ -113,22 +116,20 @@ pub async fn eval_run(
                 reason: Some(output_reason),
             };
 
-            let line = match serde_json::to_string(&eval) {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("Failed to serialize eval entry: {}", e);
-                    return;
-                }
-            };
+            let line = serde_json::to_string(&eval)?;
 
             let mut out_guard = out.lock().await;
-            if let Err(e) = out_guard.write_all(format!("{}\n", line).as_bytes()).await {
-                eprintln!("Failed to write eval entry: {}", e);
-            }
-        });
+            out_guard.write_all(format!("{}\n", line).as_bytes()).await?;
+
+            Ok::<(), AppError>(())
+        };
+        tasks.push(task);
     }
 
-    stream::iter(tasks).buffer_unordered(10).collect::<Vec<()>>().await;
+    let results: Vec<_> = stream::iter(tasks).buffer_unordered(10).collect().await;
+    for result in results {
+        result?;
+    }
 
     Ok(eval_path)
 }

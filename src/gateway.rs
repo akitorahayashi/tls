@@ -125,10 +125,12 @@ impl GenAiClient for Client {
     }
 }
 
+#[cfg(test)]
 pub struct MockGenAiClient {
     pub response: String,
 }
 
+#[cfg(test)]
 #[async_trait]
 impl GenAiClient for MockGenAiClient {
     async fn chat(&self, _model: &str, _messages: Vec<Message>) -> Result<String, AppError> {

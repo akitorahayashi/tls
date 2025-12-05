@@ -60,10 +60,7 @@ impl<'a> ProjectLayout<'a> {
         self.ensure_example_block(&mut created_paths)?;
         let gitignore_updated = self.ensure_gitignore(&mut created_paths)?;
 
-        Ok(InitReport {
-            created_paths,
-            gitignore_updated,
-        })
+        Ok(InitReport { created_paths, gitignore_updated })
     }
 
     pub fn runs_dir(&self) -> PathBuf {
@@ -139,13 +136,17 @@ impl<'a> ProjectLayout<'a> {
     }
 
     fn latest_file(&self, dir: &Path) -> Result<Option<PathBuf>, AppError> {
-        let mut entries: Vec<PathBuf> =
-            fs::read_dir(dir)?.filter_map(|e| e.ok().map(|e| e.path())).collect();
+        let mut entries: Vec<PathBuf> = fs::read_dir(dir)?
+            .map(|res| res.map(|e| e.path()))
+            .collect::<Result<Vec<_>, std::io::Error>>()?;
         entries.sort();
         Ok(entries.pop())
     }
 
-    pub fn read_jsonl<T: for<'de> serde::Deserialize<'de>>(&self, path: &Path) -> Result<Vec<T>, AppError> {
+    pub fn read_jsonl<T: for<'de> serde::Deserialize<'de>>(
+        &self,
+        path: &Path,
+    ) -> Result<Vec<T>, AppError> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let mut items = Vec::new();

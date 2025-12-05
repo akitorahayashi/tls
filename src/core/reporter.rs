@@ -6,9 +6,11 @@ use std::io::Write;
 use std::path::PathBuf;
 
 pub fn generate_report(layout: &ProjectLayout<'_>) -> Result<PathBuf, AppError> {
-    let run_path = layout.latest_run_file()?
+    let run_path = layout
+        .latest_run_file()?
         .ok_or_else(|| AppError::ConfigError("No run logs found".into()))?;
-    let eval_path = layout.latest_eval_file()?
+    let eval_path = layout
+        .latest_eval_file()?
         .ok_or_else(|| AppError::ConfigError("No eval logs found".into()))?;
 
     let eval_entries = layout.read_jsonl::<EvalEntry>(&eval_path)?;

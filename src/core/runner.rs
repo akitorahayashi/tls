@@ -4,11 +4,11 @@ use crate::model::RunEntry;
 use crate::storage::ProjectLayout;
 use chrono::Utc;
 use futures::{stream, StreamExt};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs::File as AsyncFile;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
-use std::path::PathBuf;
 
 pub async fn run_blocks(
     layout: &ProjectLayout<'_>,
@@ -43,7 +43,7 @@ pub async fn run_blocks(
             let case = case.clone();
             let file = Arc::clone(&file);
 
-            tasks.push(async move {
+            let task = async move {
                 let system_prompt = block.prompts.system.clone();
                 let messages = vec![
                     Message { role: "system".to_string(), content: system_prompt },
@@ -66,23 +66,21 @@ pub async fn run_blocks(
                     timestamp: Utc::now(),
                 };
 
-                let line = match serde_json::to_string(&entry) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        eprintln!("Failed to serialize run entry: {}", e);
-                        return;
-                    }
-                };
+                let line = serde_json::to_string(&entry)?;
 
                 let mut file_guard = file.lock().await;
-                if let Err(e) = file_guard.write_all(format!("{}\n", line).as_bytes()).await {
-                    eprintln!("Failed to write run entry: {}", e);
-                }
-            });
+                file_guard.write_all(format!("{}\n", line).as_bytes()).await?;
+
+                Ok::<(), AppError>(())
+            };
+            tasks.push(task);
         }
     }
 
-    stream::iter(tasks).buffer_unordered(10).collect::<Vec<()>>().await;
+    let results: Vec<_> = stream::iter(tasks).buffer_unordered(10).collect().await;
+    for result in results {
+        result?;
+    }
 
     Ok(run_path)
 }

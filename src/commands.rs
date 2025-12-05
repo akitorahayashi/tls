@@ -28,7 +28,7 @@ pub async fn eval(project_root: &Path) -> Result<PathBuf, AppError> {
     evaluator::eval_run(&layout, &client).await
 }
 
-pub async fn report(project_root: &Path) -> Result<PathBuf, AppError> {
+pub fn report(project_root: &Path) -> Result<PathBuf, AppError> {
     let layout = ProjectLayout::new(project_root);
     reporter::generate_report(&layout)
 }
