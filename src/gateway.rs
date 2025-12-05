@@ -1,8 +1,14 @@
 use crate::error::AppError;
+use async_trait::async_trait;
 use reqwest::{Client as HttpClient, Url};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::time::Duration;
+
+#[async_trait]
+pub trait GenAiClient: Send + Sync {
+    async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError>;
+}
 
 pub struct Client {
     http: HttpClient,
@@ -73,8 +79,11 @@ impl Client {
 
         Ok(Self { http, base_url, api_key })
     }
+}
 
-    pub async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError> {
+#[async_trait]
+impl GenAiClient for Client {
+    async fn chat(&self, model: &str, messages: Vec<Message>) -> Result<String, AppError> {
         let url = self
             .base_url
             .join("chat/completions")
@@ -113,6 +122,17 @@ impl Client {
         } else {
             Err(AppError::NetworkError("No choices in response".into()))
         }
+    }
+}
+
+pub struct MockGenAiClient {
+    pub response: String,
+}
+
+#[async_trait]
+impl GenAiClient for MockGenAiClient {
+    async fn chat(&self, _model: &str, _messages: Vec<Message>) -> Result<String, AppError> {
+        Ok(self.response.clone())
     }
 }
 
