@@ -36,14 +36,3 @@ pub struct RunEntry {
     pub output: String,
     pub timestamp: DateTime<Utc>,
 }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct EvalEntry {
-    pub block_id: String,
-    pub case_index: usize,
-    pub expected: Option<String>,
-    pub output: String,
-    pub passed: bool,
-    #[serde(default)]
-    pub reason: Option<String>,
-}
