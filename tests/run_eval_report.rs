@@ -4,15 +4,16 @@ use common::TestContext;
 use predicates::str::contains;
 use serde_json::Value;
 use std::env;
-use std::sync::Mutex;
+use std::sync::LazyLock;
+use tokio::sync::Mutex;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-static ENV_MUTEX: Mutex<()> = Mutex::new(());
+static ENV_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 #[tokio::test]
 async fn run_executes_benchmarks_only_by_default() {
-    let _lock = ENV_MUTEX.lock().unwrap();
+    let _lock = ENV_MUTEX.lock().await;
     let mock_server = MockServer::start().await;
     env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
     env::set_var("OPENAI_API_KEY", "test-key");
@@ -48,7 +49,7 @@ async fn run_executes_benchmarks_only_by_default() {
 
 #[tokio::test]
 async fn run_can_include_metrics_and_filter_by_id() {
-    let _lock = ENV_MUTEX.lock().unwrap();
+    let _lock = ENV_MUTEX.lock().await;
     let mock_server = MockServer::start().await;
     env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
     env::set_var("OPENAI_API_KEY", "test-key");
@@ -95,7 +96,7 @@ async fn run_can_include_metrics_and_filter_by_id() {
 
 #[tokio::test]
 async fn eval_and_report_produce_outputs() {
-    let _lock = ENV_MUTEX.lock().unwrap();
+    let _lock = ENV_MUTEX.lock().await;
     let mock_server = MockServer::start().await;
     env::set_var("OPENAI_BASE_URL", format!("{}/", mock_server.uri()));
     env::set_var("OPENAI_API_KEY", "test-key");

@@ -9,6 +9,7 @@ pub struct TestContext {
     root: TempDir,
 }
 
+#[allow(dead_code)]
 impl TestContext {
     pub fn new() -> Self {
         let root = TempDir::new().expect("Failed to create temp directory for tests");
