@@ -233,11 +233,17 @@ impl<'a> ProjectLayout<'a> {
             return Ok(false);
         }
 
-        let output = Command::new("git")
-            .arg("init")
-            .current_dir(self.root)
-            .output()
-            .map_err(AppError::Io)?;
+        let output =
+            Command::new("git").arg("init").current_dir(self.root).output().map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AppError::ConfigError(
+                        "git command not found. Please install Git to initialize a repository."
+                            .to_string(),
+                    )
+                } else {
+                    AppError::Io(e)
+                }
+            })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
