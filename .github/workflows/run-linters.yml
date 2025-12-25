@@ -1,0 +1,19 @@
+name: Run Linters
+
+on:
+  workflow_call:
+
+jobs:
+  run-linters:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          dependencies-command: 'uv sync --only-group dev --frozen'
+
+      - name: Run Linters
+        run: just check
