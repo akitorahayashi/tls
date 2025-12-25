@@ -1,4 +1,4 @@
-"""Typer CLI application entry point for typ-tmpl."""
+"""Typer CLI application entry point for tls."""
 
 from importlib import metadata
 from typing import Optional
@@ -6,8 +6,8 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from typ_tmpl.commands.greet import greet_app
-from typ_tmpl.core.container import create_container
+from tls.commands.init import init
+from tls.commands.run import run
 
 console = Console()
 
@@ -32,24 +32,24 @@ def get_safe_version(package_name: str, fallback: str = "0.1.0") -> str:
 def version_callback(value: bool | None) -> None:
     """Print version and exit."""
     if value:
-        version = get_safe_version("typ-tmpl")
-        console.print(f"typ-tmpl version: {version}")
+        version = get_safe_version("tls")
+        console.print(f"tls version: {version}")
         raise typer.Exit()
 
 
 app = typer.Typer(
-    name="typ-tmpl",
-    help="A minimal, database-independent Python CLI template using Typer.",
+    name="tls",
+    help="A Python CLI tool for LLM benchmarking and evaluation.",
     no_args_is_help=True,
 )
 
-# Register sub-command groups
-app.add_typer(greet_app, name="greet")
+# Register commands
+app.command("init")(init)
+app.command("run")(run)
 
 
 @app.callback()
 def main(
-    ctx: typer.Context,
     version: Optional[bool] = typer.Option(
         None,
         "--version",
@@ -60,12 +60,11 @@ def main(
     ),
 ) -> None:
     """
-    typ-tmpl - A minimal Python CLI template.
+    tls - LLM Benchmarking and Evaluation Tool.
 
     Use subcommands to interact with the application.
     """
-    # Initialize the application context
-    ctx.obj = create_container()
+    pass
 
 
 if __name__ == "__main__":

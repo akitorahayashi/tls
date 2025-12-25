@@ -1,6 +1,6 @@
-# typ-tmpl
+# tls
 
-`typ-tmpl` is a minimal, database-independent Python CLI template using Typer. It provides a clean scaffold with dependency injection via context objects, protocols for service interfaces, and a factory pattern for services. This enables high extensibility, maintainability, and testability. Includes environment-aware configuration and a lightweight test suite so you can start new CLI tools quickly without dragging in domain-specific code.
+`tls` (Telescope) is a Python CLI tool for LLM benchmarking and evaluation. It enables systematic testing of language models against structured benchmarks with progress tracking and detailed reporting.
 
 ## 🚀 Installation
 
@@ -9,15 +9,14 @@
 Install directly from GitHub using [pipx](https://pipx.pypa.io/):
 
 ```shell
-pipx install git+https://github.com/akitorahayashi/typ-tmpl.git
+pipx install git+https://github.com/akitorahayashi/tls.git
 ```
 
-After installation, the `typ-tmpl` command is available globally:
+After installation, the `tls` command is available globally:
 
 ```shell
-typ-tmpl --version
-typ-tmpl --help
-typ-tmpl greet hello World
+tls --version
+tls --help
 ```
 
 ### Development Setup
@@ -25,26 +24,69 @@ typ-tmpl greet hello World
 For development, clone the repository and use [uv](https://github.com/astral-sh/uv):
 
 ```shell
-git clone https://github.com/akitorahayashi/typ-tmpl.git
-cd typ-tmpl
+git clone https://github.com/akitorahayashi/tls.git
+cd tls
 just setup
 ```
 
 This installs dependencies with `uv` and creates a local `.env` file if one does not exist.
 
+## 🔧 Usage
+
+### Initialize a New Project
+
+```shell
+tls init [PATH]
+```
+
+Creates the project structure:
+- `telescope.ini` - Configuration file
+- `benchmarks/` - Directory for benchmark JSON files
+- `reports/` - Directory for run outputs
+
+### Run Benchmarks
+
+```shell
+tls run [OPTIONS]
+```
+
+Options:
+- `--blocks, -b PATH` - Directory containing benchmark files
+- `--file, -f PATH` - Specific benchmark file to run
+- `--id, -i TEXT` - Specific test case ID to run
+- `--model, -m TEXT` - Model(s) to use (can be repeated)
+- `--timeout, -t INT` - Request timeout in seconds
+
+### Configuration
+
+Edit `telescope.ini` to configure your project:
+
+```ini
+[project]
+name = my-project
+description = My evaluation project
+blocks_dir = ./benchmarks
+
+[target]
+models = qwen3-vl:8b-instruct-q4_K_M
+endpoint = http://127.0.0.1:11434
+timeout = 300
+# api_key = your-api-key-here
+```
+
 ### Run during Development
 
 ```shell
 just run --help
-just run greet hello World
-just run --version
+just run init
+just run run --model gpt-4
 ```
 
 Or directly via Python:
 
 ```shell
-uv run python -m typ_tmpl --help
-uv run python -m typ_tmpl greet hello World
+uv run python -m tls --help
+uv run python -m tls init
 ```
 
 ### Run Tests and Linters
@@ -60,46 +102,56 @@ just fix        # auto-format with ruff format and ruff --fix
 ## 🧱 Project Structure
 
 ```
-├── dev/
-│   └── mocks/
-│       └── services/
-│           └── mock_greeting_service.py  # Toggleable mock implementation
-├── src/
-│   └── typ_tmpl/
-│       ├── __init__.py
-│       ├── __main__.py      # python -m typ_tmpl entry point
-│       ├── main.py          # Typer app factory and command registration
-│       ├── commands/
-│       │   └── greet.py     # Greeting command implementation
-│       ├── config/
-│       │   └── settings.py  # Pydantic settings
-│       ├── core/
-│       │   └── container.py # DI container and context
-│       ├── protocols/       # Protocol definitions for service interfaces
-│       └── services/        # Concrete service implementations
-├── tests/
+src/
+└── tls/
+    ├── __init__.py
+    ├── __main__.py      # python -m tls entry point
+    ├── main.py          # Typer app factory and command registration
+    ├── commands/
+    │   ├── init.py      # Project initialization command
+    │   └── run.py       # Benchmark execution command
+    ├── config/
+    │   ├── settings.py  # Pydantic settings and config loader
+    │   └── templates.py # Default templates for initialization
+    ├── core/
+    │   ├── container.py # DI container and context
+    │   └── exceptions.py # Custom exception classes
+    ├── models/          # Pydantic models for benchmarks, reports, config
+    └── services/        # Business logic services
+tests/
 │   ├── unit/                # Pure unit tests (service layer)
 │   └── intg/                # Integration tests (CLI with CliRunner)
 ├── justfile
 └── pyproject.toml
 ```
 
-## 🔧 Configuration
+## 🔧 Environment Variables
 
 Environment variables are loaded from `.env` (managed by `just setup`):
 
-- `TYP_TMPL_APP_NAME` – application display name (default `typ-tmpl`).
-- `TYP_TMPL_USE_MOCK_GREETING` – when `true`, injects the development mock greeting service.
+- `TLS_APP_NAME` – application display name (default `tls`).
+- `TLS_USE_MOCK_LLM` – when `true`, injects the mock LLM client for testing.
 
-## ✅ Commands
+## 📊 Benchmark Format
 
-The template ships with greeting commands:
+Benchmark files are JSON documents with the following structure:
 
-```shell
-typ-tmpl --version           # Show version
-typ-tmpl --help              # Show help
-typ-tmpl greet hello <name>  # Greet someone by name
+```json
+{
+  "metadata": {
+    "id": "my-benchmark",
+    "description": "Description of the benchmark",
+    "active": true
+  },
+  "prompts": {
+    "system": "You are a helpful assistant."
+  },
+  "dataset": [
+    {
+      "id": "case-001",
+      "input": "What is 2+2?",
+      "expected": "4"
+    }
+  ]
+}
 ```
-
-Use this as a foundation for adding your own commands, services, and business logic.
-
