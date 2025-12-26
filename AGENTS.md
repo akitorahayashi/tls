@@ -1,29 +1,35 @@
-# typ-tmpl Agent Notes
+# tls (Telescope) Agent Notes
 
 ## Overview
-- Minimal Typer CLI template intended as a clean starting point for new command-line tools.
-- Ships only the essentials: dependency injection using context objects, protocols for interfaces, factory pattern for services, greeting commands, and test/CI wiring.
+- Python CLI tool for LLM benchmarking and evaluation.
+- Enables systematic testing of language models against structured benchmarks with progress tracking and detailed reporting.
+- Fully async architecture using `httpx` and `aiofiles` for I/O operations.
 
 ## Design Philosophy
-- Stay database-agnostic; add persistence only when the target project needs it.
-- Use Typer-native `ctx.obj` pattern with protocols for service interfaces and factory pattern for implementations to maximize extensibility, maintainability, and testability.
-- Keep settings and dependencies explicit via `AppSettings` and `AppContext` container.
-- Maintain parity between local and CI flows with a single source of truth (`just`, `uv`, `.env`).
+- **Single Source of Truth**: Pydantic models define all benchmark-related data structures.
+- **Type Safety**: Uses Pydantic model serialization for schema correctness.
+- **Dependency Injection**: Central DI container manages services (`LlmClient`, `Reporter`, `Executor`).
+- **Async First**: Core I/O operations implemented asynchronously using `asyncio`.
 
-## First Steps When Creating a Real CLI
-1. Clone or copy the template and run `just setup` to install dependencies.
-2. Rename the Python package from `typ_tmpl` if you need a project-specific namespace.
-3. Add new commands under `src/typ_tmpl/commands/` and register them in `main.py`.
-4. Update `.env.example` and documentation to reflect new environment variables or external services.
+## Key Commands
+- `tls init [PATH]` - Initialize a new benchmark project with configuration and example files.
+- `tls run [OPTIONS]` - Execute benchmark evaluations against configured LLM models.
 
 ## Key Files
-- `src/typ_tmpl/core/container.py`: central place to wire settings and service providers.
-- `src/typ_tmpl/main.py`: Typer app instantiation; attach new command groups here.
-- `src/typ_tmpl/commands/`: command implementations (subcommand modules).
-- `src/typ_tmpl/protocols/`: protocol definitions for service interfaces.
-- `src/typ_tmpl/services/`: concrete service implementations.
-- `tests/`: unit/intg layout kept light so additional checks can drop in without restructuring.
+- `src/tls/main.py`: Typer app instantiation; command registration.
+- `src/tls/commands/init.py`: Project initialization logic.
+- `src/tls/commands/run.py`: Benchmark execution command.
+- `src/tls/models/`: Pydantic models for benchmarks, reports, and configuration.
+- `src/tls/services/executor.py`: Core benchmark execution engine.
+- `src/tls/services/llm_client.py`: HTTP client for OpenAI-compatible APIs.
+- `src/tls/services/reporter.py`: Report writing (filesystem, in-memory).
+- `src/tls/config/settings.py`: Configuration loading from `telescope.ini`.
+- `src/tls/config/templates.py`: Default templates for project initialization.
 
-## Tooling Snapshot
-- `justfile`: run/lint/test tasks (`unit-test`, `intg-test`) used locally and in CI. Prefer `just test` as the unified entrypoint.
-- `uv.lock` + `pyproject.toml`: reproducible dependency graph; regenerate with `uv pip compile` when deps change.
+## Configuration
+- Uses `telescope.ini` (INI format) for project configuration.
+- Environment variables: `TLS_APP_NAME`, `TLS_USE_MOCK_LLM`.
+
+## Tooling
+- `justfile`: run/lint/test tasks. Use `just test` as the unified entrypoint.
+- `uv`: Dependency management. Run `uv sync` to install dependencies.

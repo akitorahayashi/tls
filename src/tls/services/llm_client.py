@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from tls.core.exceptions import ConfigError, NetworkError
+from tls.core.exceptions import NetworkError
 
 
 @dataclass
@@ -58,12 +58,7 @@ class LlmClient(GenAiClient):
         self.api_key = api_key or "dummy"
 
         # Normalize URL to ensure trailing slash
-        url = base_url.rstrip("/") + "/"
-        try:
-            self.base_url = url
-        except Exception as e:
-            raise ConfigError(f"Invalid base URL: {e}") from e
-
+        self.base_url = base_url.rstrip("/") + "/"
         self.timeout = timeout
 
     async def chat(self, model: str, messages: list[Message]) -> str:

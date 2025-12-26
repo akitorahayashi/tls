@@ -38,6 +38,9 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 pythonpath = ["."]
 addopts = "-q -s --tb=short"
+filterwarnings = [
+    "ignore::pytest.PytestCollectionWarning",
+]
 
 [tool.ruff]
 target-version = "py312"

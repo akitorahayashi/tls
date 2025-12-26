@@ -17,8 +17,9 @@ from rich.progress import (
 
 from tls.core.exceptions import ConfigError
 from tls.models.benchmark import EvaluationBlock
+from tls.models.report import RunEntry
 from tls.services.llm_client import GenAiClient, Message
-from tls.services.reporter import ReportWriter, RunEntry
+from tls.services.reporter import ReportWriter
 
 
 @dataclass
@@ -217,10 +218,15 @@ class Executor:
                         entry = RunEntry(
                             block_id=block.metadata.id,
                             case_index=idx,
-                            input_text=case.input,
+                            input=case.input,
                             output=output,
+                            model=model,
                             expected=case.expected,
                             context=case.context,
+                            criteria=case.criteria,
+                            grading_template=block.grading.template
+                            if block.grading
+                            else None,
                         )
                         await self.reporter.write_entry(run_dir, entry)
 

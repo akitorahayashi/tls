@@ -6,6 +6,7 @@ from pathlib import Path
 from rich.console import Console
 
 from tls.config.settings import AppSettings, load_config
+from tls.core.exceptions import TlsError
 from tls.models.project_config import Config
 from tls.services.executor import Executor
 from tls.services.initializer import Initializer
@@ -81,8 +82,8 @@ def create_container(
 
     try:
         config = load_config(project_root)
-    except Exception:
-        # Config not available, will use defaults or mocks
+    except TlsError:
+        # Config not available or invalid, will use defaults or mocks
         pass
 
     if llm_client is None:

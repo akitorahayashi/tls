@@ -9,26 +9,7 @@ import aiofiles.os
 
 from tls.core.exceptions import TlsError
 from tls.models.project_config import sanitize_model_name
-
-
-class RunEntry:
-    """Entry representing a single test case execution result."""
-
-    def __init__(
-        self,
-        block_id: str,
-        case_index: int,
-        input_text: str,
-        output: str,
-        expected: str | None = None,
-        context: str | None = None,
-    ) -> None:
-        self.block_id = block_id
-        self.case_index = case_index
-        self.input = input_text
-        self.output = output
-        self.expected = expected
-        self.context = context
+from tls.models.report import RunEntry
 
 
 class ReportWriter(ABC):
@@ -105,7 +86,8 @@ class FileSystemReporter(ReportWriter):
         block_ids: list[str],
     ) -> Path:
         """Initialize a new run directory."""
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S.%f")[:-3]
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%d%H%M%S.%f")[:-3]
         sanitized_model = sanitize_model_name(model)
 
         if category:
@@ -115,7 +97,7 @@ class FileSystemReporter(ReportWriter):
 
         await aiofiles.os.makedirs(run_dir, exist_ok=True)
 
-        timestamp_str = datetime.now(timezone.utc).isoformat()
+        timestamp_str = now.isoformat()
 
         # Create report files with headers for all blocks
         for block_id in block_ids:
