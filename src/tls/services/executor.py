@@ -168,7 +168,7 @@ class Executor:
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
+            BarColumn(style="cyan"),
             TaskProgressColumn(),
             TimeElapsedColumn(),
             console=self.console,

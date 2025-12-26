@@ -38,7 +38,7 @@ setup:
 
 # Run the CLI application
 run *args:
-    @uv run python -m tls {{args}}
+    @uv run tls {{args}}
 
 # ==============================================================================
 # CODE QUALITY
@@ -92,8 +92,5 @@ clean:
     @rm -rf .venv
     @rm -rf .pytest_cache
     @rm -rf .ruff_cache
-    @rm -rf .aider.tags.cache.v4
-    @rm -rf .serena/cache
-    @rm -rf .uv-cache
     @rm -rf .tmp
     @echo "✅ Cleanup completed"

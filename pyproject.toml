@@ -1,6 +1,6 @@
 [project]
 name = "tls"
-version = "0.1.2"
+version = "0.1.3"
 description = "A Python CLI tool for LLM benchmarking and evaluation."
 requires-python = ">=3.9"
 dependencies = [
