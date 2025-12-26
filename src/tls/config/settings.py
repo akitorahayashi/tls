@@ -42,7 +42,11 @@ def load_config(project_root: Path) -> Config:
     if not config_path.exists():
         raise ConfigError("telescope.ini not found. Run 'tls init' first.")
 
-    parser = configparser.ConfigParser()
+    # Disable inline comment parsing to allow # in values
+    parser = configparser.ConfigParser(
+        inline_comment_prefixes=(),
+        comment_prefixes=("#", ";"),
+    )
     parser.read(config_path)
 
     if "project" not in parser:
