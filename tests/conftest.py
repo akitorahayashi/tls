@@ -1,9 +1,9 @@
-"""Shared pytest fixtures for the typ-tmpl project template."""
+"""Shared pytest fixtures for the tls project."""
 
 import pytest
 from typer.testing import CliRunner
 
-from typ_tmpl.main import app
+from tls.main import app
 
 
 @pytest.fixture(scope="session", autouse=True)
