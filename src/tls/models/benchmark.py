@@ -50,6 +50,10 @@ class TestCase(BaseModel):
     criteria: GradingCriteria | None = Field(
         default=None, description="Specific grading criteria for this test case"
     )
+    active: bool | None = Field(
+        default=None,
+        description="Control execution status for individual test case (optional)",
+    )
 
 
 class EvaluationBlock(BaseModel):
