@@ -6,7 +6,7 @@ from pathlib import Path
 from rich.console import Console
 
 from tls.config.settings import AppSettings, load_config
-from tls.errors import TlsError
+from tls.errors import ConfigError, TlsError
 from tls.models.project_config import Config
 from tls.protocols.llm import LlmClientProtocol
 from tls.protocols.reporter import ReporterProtocol
@@ -42,6 +42,9 @@ def get_llm_client(
 
     Returns:
         Either a mock or real LLM client implementation.
+
+    Raises:
+        ConfigError: If real client is requested but no config is available.
     """
     if settings.use_mock_llm:
         from mocks.llm import MockLlmClient
@@ -49,9 +52,10 @@ def get_llm_client(
         return MockLlmClient()
 
     if config is None:
-        from mocks.llm import MockLlmClient
-
-        return MockLlmClient()
+        raise ConfigError(
+            "Cannot initialize LLM client without configuration. "
+            "Ensure telescope.ini is present or use TLS_USE_MOCK_LLM=true."
+        )
 
     return LlmClient(
         base_url=config.target.endpoint,
