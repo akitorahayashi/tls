@@ -8,6 +8,7 @@ from rich.console import Console
 
 from tls.commands.init import init
 from tls.commands.run import run
+from tls.context import create_context
 
 console = Console()
 
@@ -50,6 +51,7 @@ app.command("run")(run)
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: Optional[bool] = typer.Option(
         None,
         "--version",
@@ -64,7 +66,7 @@ def main(
 
     Use subcommands to interact with the application.
     """
-    pass
+    ctx.obj = create_context()
 
 
 if __name__ == "__main__":

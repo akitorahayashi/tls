@@ -4,18 +4,17 @@ import asyncio
 from pathlib import Path
 
 import typer
-from rich.console import Console
 
 from tls.config.settings import load_config
-from tls.core.exceptions import ConfigError, TlsError
+from tls.context import AppContext
+from tls.errors import ConfigError, TlsError
 from tls.services.executor import Executor
 from tls.services.llm_client import LlmClient
 from tls.services.reporter import FileSystemReporter
 
-console = Console()
-
 
 def run(
+    ctx: typer.Context,
     blocks_dir: Path = typer.Option(
         None,
         "--blocks",
@@ -53,6 +52,9 @@ def run(
     Executes test cases against configured LLM models and writes
     results to the reports directory.
     """
+    app_ctx: AppContext = ctx.obj
+    console = app_ctx.console
+
     try:
         # Load configuration
         project_root = Path.cwd()

@@ -12,23 +12,23 @@ from tls.models import (
 class TestSanitizeModelName:
     """Tests for model name sanitization."""
 
-    def test_sanitize_colons(self):
+    def test_sanitize_colons(self) -> None:
         """Colons are replaced with dashes."""
         assert sanitize_model_name("qwen3:8b") == "qwen3-8b"
 
-    def test_sanitize_slashes(self):
+    def test_sanitize_slashes(self) -> None:
         """Slashes are replaced with dashes."""
         assert sanitize_model_name("mlx/model") == "mlx-model"
 
-    def test_sanitize_spaces(self):
+    def test_sanitize_spaces(self) -> None:
         """Spaces are replaced with dashes."""
         assert sanitize_model_name("my model") == "my-model"
 
-    def test_sanitize_backslashes(self):
+    def test_sanitize_backslashes(self) -> None:
         """Backslashes are replaced with dashes."""
         assert sanitize_model_name("path\\model") == "path-model"
 
-    def test_sanitize_mixed(self):
+    def test_sanitize_mixed(self) -> None:
         """Multiple special characters are all replaced."""
         assert sanitize_model_name("mlx:8b/v1 test") == "mlx-8b-v1-test"
 
@@ -36,7 +36,7 @@ class TestSanitizeModelName:
 class TestEvaluationBlock:
     """Tests for EvaluationBlock model."""
 
-    def test_create_minimal_block(self):
+    def test_create_minimal_block(self) -> None:
         """Create a block with minimal required fields."""
         block = EvaluationBlock(
             metadata=BlockMetadata(id="test-block"),
@@ -47,7 +47,7 @@ class TestEvaluationBlock:
         assert block.metadata.active is True
         assert len(block.dataset) == 1
 
-    def test_block_with_grading(self):
+    def test_block_with_grading(self) -> None:
         """Create a block with grading configuration."""
         from tls.models import BlockGrading
 
@@ -60,7 +60,7 @@ class TestEvaluationBlock:
         assert block.grading is not None
         assert block.grading.template == "Grade: {{output}}"
 
-    def test_test_case_optional_fields(self):
+    def test_test_case_optional_fields(self) -> None:
         """Test case optional fields default to None."""
         case = TestCase(input="Hello")
         assert case.id is None
