@@ -89,8 +89,13 @@ intg-test:
 clean:
     @echo "🧹 Cleaning up project..."
     @find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    @find . -type f -name "*.pyc" -delete 2>/dev/null || true
+    @find . -type f -name "*.pyo" -delete 2>/dev/null || true
+    @find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
     @rm -rf .venv
     @rm -rf .pytest_cache
     @rm -rf .ruff_cache
-    @rm -rf .tmp
+    @rm -rf dist
+    @rm -rf build
+    @rm -rf *.egg-info
     @echo "✅ Cleanup completed"

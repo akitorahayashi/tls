@@ -3,14 +3,12 @@
 from pathlib import Path
 
 import typer
-from rich.console import Console
 
-from tls.services.initializer import Initializer
-
-console = Console()
+from tls.context import AppContext
 
 
 def init(
+    ctx: typer.Context,
     path: Path = typer.Argument(
         Path("."),
         help="Directory to initialize the project in.",
@@ -25,7 +23,9 @@ def init(
     - reports/ directory for run outputs
     - .gitignore with appropriate entries
     """
-    initializer = Initializer(console=console)
+    app_ctx: AppContext = ctx.obj
+    console = app_ctx.console
+    initializer = app_ctx.initializer
 
     try:
         report = initializer.execute(path)

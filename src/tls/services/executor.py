@@ -15,11 +15,11 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from tls.core.exceptions import ConfigError
+from tls.errors import ConfigError
 from tls.models.benchmark import EvaluationBlock
 from tls.models.report import RunEntry
-from tls.services.llm_client import GenAiClient, Message
-from tls.services.reporter import ReportWriter
+from tls.protocols.llm import LlmClientProtocol, Message
+from tls.protocols.reporter import ReporterProtocol
 
 
 @dataclass
@@ -63,8 +63,8 @@ class Executor:
 
     def __init__(
         self,
-        client: GenAiClient,
-        reporter: ReportWriter,
+        client: LlmClientProtocol,
+        reporter: ReporterProtocol,
         console: Console | None = None,
     ) -> None:
         """

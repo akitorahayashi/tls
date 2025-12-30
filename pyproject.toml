@@ -2,14 +2,14 @@
 name = "tls"
 version = "0.1.3"
 description = "A Python CLI tool for LLM benchmarking and evaluation."
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "aiofiles>=24.0.0",
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv==1.0.1",
-    "rich>=13.0.0",
+    "rich>=14.0.0",
     "typer>=0.12.0",
 ]
 
@@ -36,7 +36,7 @@ packages = ["src/tls"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
-pythonpath = ["."]
+pythonpath = [".", "dev"]
 addopts = "-q -s --tb=short"
 filterwarnings = [
     "ignore::pytest.PytestCollectionWarning",
@@ -71,4 +71,4 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 disallow_untyped_defs = true
-exclude = ["tests/"]
+pythonpath = ["."]

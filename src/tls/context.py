@@ -1,4 +1,4 @@
-"""Dependency injection container for the tls CLI application."""
+"""Application context and dependency injection for the tls CLI."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,12 +6,14 @@ from pathlib import Path
 from rich.console import Console
 
 from tls.config.settings import AppSettings, load_config
-from tls.core.exceptions import TlsError
+from tls.errors import TlsError
 from tls.models.project_config import Config
+from tls.protocols.llm import LlmClientProtocol
+from tls.protocols.reporter import ReporterProtocol
 from tls.services.executor import Executor
 from tls.services.initializer import Initializer
-from tls.services.llm_client import GenAiClient, LlmClient, MockLlmClient
-from tls.services.reporter import FileSystemReporter, ReportWriter
+from tls.services.llm_client import LlmClient
+from tls.services.reporter import FileSystemReporter
 
 
 @dataclass
@@ -20,14 +22,17 @@ class AppContext:
 
     settings: AppSettings
     config: Config | None
-    llm_client: GenAiClient
-    reporter: ReportWriter
+    llm_client: LlmClientProtocol
+    reporter: ReporterProtocol
     executor: Executor
     initializer: Initializer
     console: Console
 
 
-def get_llm_client(settings: AppSettings, config: Config | None) -> GenAiClient:
+def get_llm_client(
+    settings: AppSettings,
+    config: Config | None,
+) -> LlmClientProtocol:
     """
     Get the appropriate LLM client based on settings.
 
@@ -39,10 +44,13 @@ def get_llm_client(settings: AppSettings, config: Config | None) -> GenAiClient:
         Either a mock or real LLM client implementation.
     """
     if settings.use_mock_llm:
+        from mocks.llm import MockLlmClient
+
         return MockLlmClient()
 
     if config is None:
-        # Return mock if no config is available
+        from mocks.llm import MockLlmClient
+
         return MockLlmClient()
 
     return LlmClient(
@@ -52,11 +60,11 @@ def get_llm_client(settings: AppSettings, config: Config | None) -> GenAiClient:
     )
 
 
-def create_container(
+def create_context(
     settings: AppSettings | None = None,
     project_root: Path | None = None,
-    llm_client: GenAiClient | None = None,
-    reporter: ReportWriter | None = None,
+    llm_client: LlmClientProtocol | None = None,
+    reporter: ReporterProtocol | None = None,
 ) -> AppContext:
     """
     Create and return the application context with all dependencies wired.

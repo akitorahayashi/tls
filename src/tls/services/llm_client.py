@@ -1,44 +1,12 @@
 """LLM client service for API communication."""
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-
 import httpx
 
-from tls.core.exceptions import NetworkError
+from tls.errors import NetworkError
+from tls.protocols.llm import Message
 
 
-@dataclass
-class Message:
-    """Chat message structure."""
-
-    role: str
-    content: str
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert to dictionary for JSON serialization."""
-        return {"role": self.role, "content": self.content}
-
-
-class GenAiClient(ABC):
-    """Abstract base class for LLM clients."""
-
-    @abstractmethod
-    async def chat(self, model: str, messages: list[Message]) -> str:
-        """
-        Send a chat completion request.
-
-        Args:
-            model: Model name to use.
-            messages: List of messages for the conversation.
-
-        Returns:
-            The model's response content.
-        """
-        pass
-
-
-class LlmClient(GenAiClient):
+class LlmClient:
     """HTTP client for OpenAI-compatible LLM APIs."""
 
     def __init__(
@@ -104,15 +72,3 @@ class LlmClient(GenAiClient):
 
             content: str = choices[0]["message"]["content"]
             return content
-
-
-class MockLlmClient(GenAiClient):
-    """Mock LLM client for testing."""
-
-    def __init__(self, response: str = "Mock response") -> None:
-        """Initialize with a fixed response."""
-        self.response = response
-
-    async def chat(self, model: str, messages: list[Message]) -> str:
-        """Return the configured mock response."""
-        return self.response

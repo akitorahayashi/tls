@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
-from tls.core.exceptions import ConfigError
+from tls.errors import ConfigError
 from tls.models.project_config import Config, ProjectConfig, TargetConfig
 
 

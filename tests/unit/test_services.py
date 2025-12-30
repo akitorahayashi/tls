@@ -4,9 +4,10 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from mocks.llm import MockLlmClient
 
+from tls.protocols.llm import Message
 from tls.services.initializer import Initializer
-from tls.services.llm_client import Message, MockLlmClient
 
 
 class TestMockLlmClient:
