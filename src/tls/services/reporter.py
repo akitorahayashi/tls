@@ -55,7 +55,7 @@ class FileSystemReporter:
         sanitized_model = sanitize_model_name(model)
 
         if category:
-            run_dir = self.reports_dir / category / sanitized_model / timestamp
+            run_dir: Path = self.reports_dir / category / sanitized_model / timestamp
         else:
             run_dir = self.reports_dir / sanitized_model / timestamp
 
